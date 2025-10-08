@@ -1,0 +1,4 @@
+name: mytool
+entry: scripts/main.sh
+scripts: scripts
+version: 1.0.1
