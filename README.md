@@ -1,5 +1,5 @@
 ## Overview
-shtool is a Go-based build tool that bundles shell scripts into a single, portable executable. It enables structured hierarchical scripting while providing easy distribution and management through a single binary.
+shpack is a Go-based build tool that bundles shell scripts into a single, portable executable. It enables structured hierarchical scripting while providing easy distribution and management through a single binary.
 
 ## Goals
 - Bundle multiple shell scripts into one executable
@@ -15,14 +15,14 @@ myproject/
 │   ├── dependency.sh    # Supporting scripts
 │   ├── utils.sh
 │   └── ...
-├── shtool.yaml          # Build configuration (optional)
+├── shpack.yaml          # Build configuration (optional)
 └── build/               # Output directory
     └── mytool           # Final executable
 ```
 
 ## Build Process
 
-### Configuration File: `shtool.yaml`
+### Configuration File: `shpack.yaml`
 ```yaml
 name: mytool              # Output executable name
 entry: scripts/main.sh    # Entry point script
@@ -31,23 +31,23 @@ version: 1.0.0
 ```
 
 ### Environment
-- `SHTOOL_SCRIPT_DIR`: Path to temporary script directory
-- `SHTOOL_VERSION`: Version of bundled scripts
+- `SHPACK_SCRIPT_DIR`: Path to temporary script directory
+- `SHPACK_VERSION`: Version of bundled scripts
 - All original environment variables passed through
 - Scripts can source dependencies using relative paths
 
 ## Commands
 
-### `shtool version`
-Show shtool version.
+### `shpack version`
+Show shpack version.
 
-### `shtool init`
+### `shpack init`
 Initialize new project with template structure.
 
-### `shtool build`
+### `shpack build`
 Build the executable from project.
 
-### `shtool make`
+### `shpack make`
 Quick build from folder of scripts, output the executable only.
 
 ## Dependencies

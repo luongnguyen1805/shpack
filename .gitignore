@@ -32,6 +32,5 @@ go.work.sum
 # .vscode/
 sample/build
 vendor
-go.mod
 go.sum
-shtool
+shpack

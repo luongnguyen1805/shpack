@@ -63,8 +63,8 @@ func main() {
 
 	// Set up environment
 	cmd.Env = append(os.Environ(),
-		"SHTOOL_SCRIPT_DIR="+cacheDir,
-		"SHTOOL_VERSION={{.Version}}",
+		"SHPACK_SCRIPT_DIR="+cacheDir,
+		"SHPACK_VERSION={{.Version}}",
 	)
 	
 	cmd.Stdout = os.Stdout
@@ -159,7 +159,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Println("shtool version 1.0.0")
+		fmt.Println("shpack version 1.0.0")
 	default:
 		printUsage()
 		os.Exit(1)
@@ -167,23 +167,23 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`shtool - Shell Script Bundler
+	fmt.Println(`shpack - Shell Script Bundler
 
 Usage:
-  shtool build [source_dir]  Build executable from scripts
-  shtool make <folder>       Quick build from existing script folder
-  shtool init [source_dir]   Initialize a new project
-  shtool version             Show version
+  shpack build [source_dir]  Build executable from scripts
+  shpack make <folder>       Quick build from existing script folder
+  shpack init [source_dir]   Initialize a new project
+  shpack version             Show version
   
 Examples:
-  shtool build              # Build from current directory
-  shtool make ./myscripts   # Quick build from folder (auto-setup)
-  shtool init ./newproject  # Initialize new project`)
+  shpack build              # Build from current directory
+  shpack make ./myscripts   # Quick build from folder (auto-setup)
+  shpack init ./newproject  # Initialize new project`)
 }
 
 func buildCommand(srcDir string) error {
 	// Parse flags
-	configFile := "shtool.yaml"
+	configFile := "shpack.yaml"
 	outputPath := ""
 
 	originalDir, err := os.Getwd()
@@ -241,7 +241,7 @@ func buildCommand(srcDir string) error {
 	}
 
 	// Create temporary build directory for generated code
-	tmpBuildDir, err := os.MkdirTemp("", "shtool-build-*")
+	tmpBuildDir, err := os.MkdirTemp("", "shpack-build-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp build directory: %w", err)
 	}
@@ -330,8 +330,8 @@ entry: scripts/main.sh
 scripts: scripts
 version: 1.0.0
 `
-	if err := os.WriteFile("shtool.yaml", []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to create shtool.yaml: %w", err)
+	if err := os.WriteFile("shpack.yaml", []byte(configContent), 0644); err != nil {
+		return fmt.Errorf("failed to create shpack.yaml: %w", err)
 	}
 
 	// Create sample main.sh
@@ -342,7 +342,7 @@ version: 1.0.0
 		return fmt.Errorf("failed to create main.sh: %w", err)
 	}
 
-	fmt.Println("✓ Initialized shtool project")
+	fmt.Println("✓ Initialized shpack project")
 	return nil
 }
 
@@ -362,7 +362,7 @@ func makeCommand(srcDir string) error {
 	toolName := filepath.Base(absPath)
 
 	// Create temporary build directory
-	tmpDir, err := os.MkdirTemp("", "shtool-make-*")
+	tmpDir, err := os.MkdirTemp("", "shpack-make-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -427,14 +427,14 @@ func makeCommand(srcDir string) error {
 	// Generate random version for fresh build
 	randomVersion := randomVersion()
 
-	// Create shtool.yaml in temp directory
+	// Create shpack.yaml in temp directory
 	configContent := fmt.Sprintf(`name: %s
 entry: scripts/main.sh
 scripts: scripts
 version: %s
 `, toolName, randomVersion)
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "shtool.yaml"), []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "shpack.yaml"), []byte(configContent), 0644); err != nil {
 		return fmt.Errorf("failed to create config: %w", err)
 	}
 
@@ -450,7 +450,7 @@ version: %s
 	defer os.Chdir(originalDir)
 
 	// Load config and build
-	config, err := loadConfig("shtool.yaml")
+	config, err := loadConfig("shpack.yaml")
 	if err != nil {
 		return err
 	}
@@ -464,7 +464,7 @@ version: %s
 	outputPath := filepath.Join(originalDir, toolName)
 
 	// Create build directory for compilation
-	buildTmpDir, err := os.MkdirTemp("", "shtool-build-*")
+	buildTmpDir, err := os.MkdirTemp("", "shpack-build-*")
 	if err != nil {
 		return fmt.Errorf("failed to create build temp directory: %w", err)
 	}

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-PROJECT=shtool
+PROJECT=shpack
