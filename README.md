@@ -1,13 +1,45 @@
-## Overview
-shpack is a Go-based build tool that bundles shell scripts into a single, portable executable. It enables structured hierarchical scripting while providing easy distribution and management through a single binary.
+# 🧩 shpack
 
-## Goals
-- Bundle multiple shell scripts into one executable
-- Maintain script hierarchy and dependencies
-- Zero external dependencies for end users
-- Cross-platform support (Linux, macOS, BSD)
+**shpack** is a Go-based build tool that bundles multiple shell scripts into a single, portable executable.  
+It lets you organize scripts hierarchically, distribute them as one binary, and run them anywhere — no dependencies required.
 
-## Project Structure
+---
+
+## 🚀 Installation
+
+```bash
+brew tap luongnguyen1805/shpack
+brew install shpack
+````
+
+*(Works on macOS and Linux via Homebrew.)*
+
+---
+
+## 💡 Commands
+
+| Command                 | Description                                                      |
+| ----------------------- | ---------------------------------------------------------------- |
+| `shpack version`        | Show shpack version                                              |
+| `shpack init {FOLDER}`  | Initialize a new project with a sample structure                 |
+| `shpack build {FOLDER}` | Build an executable from the specified project folder            |
+| `shpack make {FOLDER}`  | Quick build from a folder of scripts, output the executable only |
+
+---
+
+## 🧱 Overview
+
+`shpack` enables developers to:
+
+* Bundle multiple shell scripts into a single binary
+* Preserve folder hierarchy and script dependencies
+* Deliver zero-dependency executables to end users
+* Support Linux, macOS, and BSD out of the box
+
+---
+
+## 📁 Project Structure
+
 ```
 myproject/
 ├── scripts/
@@ -15,48 +47,69 @@ myproject/
 │   ├── dependency.sh    # Supporting scripts
 │   ├── utils.sh
 │   └── ...
-├── shpack.yaml          # Build configuration (optional)
-└── build/               # Output directory
-    └── mytool           # Final executable
+├── shpack.yaml          # Optional build configuration
+└── build/
+    └── mytool           # Generated executable
 ```
 
-## Build Process
+---
 
-### Configuration File: `shpack.yaml`
+## ⚙️ Build Configuration (`shpack.yaml`)
+
 ```yaml
 name: mytool              # Output executable name
 entry: scripts/main.sh    # Entry point script
-scripts: scripts          # Scripts folder name
+scripts: scripts          # Directory containing scripts
 version: 1.0.0
 ```
 
-### Environment
-- `SHPACK_SCRIPT_DIR`: Path to temporary script directory
-- `SHPACK_VERSION`: Version of bundled scripts
-- All original environment variables passed through
-- Scripts can source dependencies using relative paths
+---
 
-## Commands
+## 🌍 Runtime Environment
 
-### `shpack version`
-Show shpack version.
+When the executable runs, shpack provides the following environment variables:
 
-### `shpack init`
-Initialize new project with template structure.
+| Variable                                               | Description                                  |
+| ------------------------------------------------------ | -------------------------------------------- |
+| `SHPACK_SCRIPT_DIR`                                    | Path to extracted temporary script directory |
+| `SHPACK_VERSION`                                       | Version of the bundled scripts               |
+| *(all other user environment variables are preserved)* |                                              |
 
-### `shpack build`
-Build the executable from project.
+> Inside your scripts, you can safely `source ./env.sh` or use relative paths — they resolve within `SHPACK_SCRIPT_DIR`.
 
-### `shpack make`
-Quick build from folder of scripts, output the executable only.
+---
 
-## Dependencies
+## 🧰 Dependencies
 
-### Build Time
-- Go 1.16+ (for `embed` package)
-- YAML parser: `gopkg.in/yaml.v3`
+### Build-time
+
+* Go **1.16+** (for `embed` support)
+* YAML parser: [`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3)
 
 ### Runtime
-- Bash shell (must be available on target system)
-- No other dependencies
 
+* Bash shell (`/bin/bash` or equivalent)
+* No additional dependencies
+
+---
+
+## 📦 Example Workflow
+
+```bash
+# Initialize project
+shpack init sample
+
+# Edit scripts inside sample/scripts/
+
+# Build executable
+shpack build sample
+
+# Run built tool
+./sample/build/mytool
+```
+
+---
+
+## 🧾 License
+
+None
