@@ -1,1 +1,1 @@
-docs/* -filter=lfs -diff=lfs -merge=lfs
+docs/** -filter=lfs -diff=lfs -merge=lfs
