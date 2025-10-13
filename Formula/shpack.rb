@@ -25,9 +25,8 @@ class Shpack < Formula
   end
 
   def install
-    # Fix: Extract tarball and install binary as 'shpack'
     system "tar", "-xzf", Dir["*.tar.gz"].first
-    bin.install Dir["shpack-*"].first => "shpack"
+    bin.install "shpack"
   end
 
   test do

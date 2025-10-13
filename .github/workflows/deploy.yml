@@ -1,0 +1,218 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build for all platforms
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, darwin]
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o dist/shpack-${{ matrix.os }}-${{ matrix.arch }}
+
+      - name: Package binaries
+        run: |
+          cd dist
+          # Fix: Check if files exist before packaging to avoid processing literal '*'
+          if ls *.tar.gz 2>/dev/null; then
+            echo "Error: Tar files already exist in dist/"
+            exit 1
+          fi
+          if ls shpack-* 2>/dev/null; then
+            for f in *; do
+              tar -czf "$f.tar.gz" "$f"
+            done
+          else
+            echo "Error: No binaries found in dist/ to package"
+            exit 1
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          # Fix: Use unique artifact name per matrix job to prevent overwrites
+          name: builds-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          retention-days: 30
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      build_data: ${{ steps.meta.outputs.build_data }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Tag $VERSION does not match vX.Y.Z format"
+            exit 1
+          fi
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # Fix: Download all artifacts with pattern matching
+          pattern: builds-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify downloaded artifacts
+        run: |
+          # Fix: Adjust path to account for downloaded artifact structure
+          if [ -z "$(ls dist/builds-*/*.tar.gz 2>/dev/null)" ]; then
+            echo "Error: No artifacts found in dist/"
+            exit 1
+          fi
+          mv dist/builds-*/*.tar.gz dist/
+          rm -rf dist/builds-*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy to versioned docs
+        # Note: Requires 'contents: write' permission in GITHUB_TOKEN
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          mkdir -p docs/$VERSION
+          cp dist/*.tar.gz docs/$VERSION/
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/$VERSION
+          if ! git diff --cached --quiet; then
+            git commit -m "Add release docs for $VERSION"
+            git push || { echo "Push failed"; exit 1; }
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Prepare homebrew data
+        id: meta
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          USER=${{ github.repository_owner }}
+          REPO=$(basename "${{ github.repository }}")
+          BUILD_DATA=""
+          # Fix: Validate artifacts exist in docs/$VERSION/ before processing
+          if [ -z "$(ls docs/$VERSION/*.tar.gz 2>/dev/null)" ]; then
+            echo "Error: No artifacts found in docs/$VERSION/"
+            exit 1
+          fi
+          for FILE in docs/$VERSION/*.tar.gz; do
+            SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+            NAME=$(basename "$FILE")
+            URL="https://${USER}.github.io/${REPO}/${VERSION}/${NAME}"
+            echo "  $NAME"
+            echo "  sha256: $SHA"
+            echo "  url: $URL"
+            BUILD_DATA="${BUILD_DATA}${NAME}:${SHA}:${URL}\n"
+          done
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "build_data<<EOF"
+            echo -e "$BUILD_DATA"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  update_homebrew:
+    name: Update Homebrew Formula
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-shpack
+          token: ${{ secrets.PAT }}
+          path: homebrew-shpack
+
+      - name: Update formula for all builds
+        run: |
+          FORMULA=homebrew-shpack/Formula/shpack.rb
+          VERSION="${{ needs.release.outputs.version }}"
+          echo "Updating Homebrew formula for version: $VERSION"
+          echo "Received build data:"
+          echo "${{ needs.release.outputs.build_data }}"
+          # Update version line (if it exists)
+          if grep -q '^  version ' "$FORMULA"; then
+            sed -i "s|^  version \".*\"|  version \"$VERSION\"|" "$FORMULA"
+          elif grep -q '^version ' "$FORMULA"; then
+            sed -i "s|^version \".*\"|version \"$VERSION\"|" "$FORMULA"
+          else
+            # Insert version if not found (after homepage line)
+            sed -i "/^  homepage /a\  version \"$VERSION\"" "$FORMULA"
+          fi
+          # Loop through build data for all architectures
+          echo "${{ needs.release.outputs.build_data }}" | while IFS=: read -r NAME SHA URL; do
+            echo "Processing $NAME"
+            # Fix: Validate architecture blocks exist before updating
+            if [[ "$NAME" == *darwin-amd64* ]]; then
+              if ! grep -q "darwin-amd64" "$FORMULA"; then
+                echo "Error: darwin-amd64 not found in formula"
+                exit 1
+              fi
+              sed -i "s|^ *url \".*darwin-amd64.*\"|      url \"$URL\"|" "$FORMULA"
+              sed -i "s|^ *sha256 \".*darwin-amd64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+            elif [[ "$NAME" == *darwin-arm64* ]]; then
+              if ! grep -q "darwin-arm64" "$FORMULA"; then
+                echo "Error: darwin-arm64 not found in formula"
+                exit 1
+              fi
+              sed -i "s|^ *url \".*darwin-arm64.*\"|      url \"$URL\"|" "$FORMULA"
+              sed -i "s|^ *sha256 \".*darwin-arm64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+            elif [[ "$NAME" == *linux-amd64* ]]; then
+              if ! grep -q "linux-amd64" "$FORMULA"; then
+                echo "Error: linux-amd64 not found in formula"
+                exit 1
+              fi
+              sed -i "s|^ *url \".*linux-amd64.*\"|      url \"$URL\"|" "$FORMULA"
+              sed -i "s|^ *sha256 \".*linux-amd64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+            elif [[ "$NAME" == *linux-arm64* ]]; then
+              if ! grep -q "linux-arm64" "$FORMULA"; then
+                echo "Error: linux-arm64 not found in formula"
+                exit 1
+              fi
+              sed -i "s|^ *url \".*linux-arm64.*\"|      url \"$URL\"|" "$FORMULA"
+              sed -i "s|^ *sha256 \".*linux-arm64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+            fi
+          done
+          cd homebrew-shpack
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/shpack.rb
+          git commit -m "Update shpack.rb for version $VERSION"
+          git push
