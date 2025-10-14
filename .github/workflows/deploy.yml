@@ -184,29 +184,41 @@ jobs:
                 echo "Error: darwin-amd64 not found in formula"
                 exit 1
               fi
-              sed -i "s|^ *url \".*darwin-amd64.*\"|      url \"$URL\"|" "$FORMULA"
-              sed -i "s|^ *sha256 \".*darwin-amd64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+              sed -i "/darwin-amd64/{
+                s|^ *url \".*darwin-amd64.*\"|      url \"$URL\"|
+                n
+                s|^ *sha256 \".*\"|      sha256 \"$SHA\"|
+              }" "$FORMULA"              
             elif [[ "$NAME" == *darwin-arm64* ]]; then
               if ! grep -q "darwin-arm64" "$FORMULA"; then
                 echo "Error: darwin-arm64 not found in formula"
                 exit 1
               fi
-              sed -i "s|^ *url \".*darwin-arm64.*\"|      url \"$URL\"|" "$FORMULA"
-              sed -i "s|^ *sha256 \".*darwin-arm64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+              sed -i "/darwin-arm64/{
+                s|^ *url \".*darwin-arm64.*\"|      url \"$URL\"|
+                n
+                s|^ *sha256 \".*\"|      sha256 \"$SHA\"|
+              }" "$FORMULA"              
             elif [[ "$NAME" == *linux-amd64* ]]; then
               if ! grep -q "linux-amd64" "$FORMULA"; then
                 echo "Error: linux-amd64 not found in formula"
                 exit 1
               fi
-              sed -i "s|^ *url \".*linux-amd64.*\"|      url \"$URL\"|" "$FORMULA"
-              sed -i "s|^ *sha256 \".*linux-amd64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+              sed -i "/linux-amd64/{
+                s|^ *url \".*linux-amd64.*\"|      url \"$URL\"|
+                n
+                s|^ *sha256 \".*\"|      sha256 \"$SHA\"|
+              }" "$FORMULA"              
             elif [[ "$NAME" == *linux-arm64* ]]; then
               if ! grep -q "linux-arm64" "$FORMULA"; then
                 echo "Error: linux-arm64 not found in formula"
                 exit 1
               fi
-              sed -i "s|^ *url \".*linux-arm64.*\"|      url \"$URL\"|" "$FORMULA"
-              sed -i "s|^ *sha256 \".*linux-arm64.*\"|      sha256 \"$SHA\"|" "$FORMULA"
+              sed -i "/linux-arm64/{
+                s|^ *url \".*linux-arm64.*\"|      url \"$URL\"|
+                n
+                s|^ *sha256 \".*\"|      sha256 \"$SHA\"|
+              }" "$FORMULA"              
             fi
           done
           cd homebrew-shpack
