@@ -32,6 +32,7 @@ jobs:
       - name: Build binaries
         run: |
           mkdir -p dist
+          go mod tidy
           GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o dist/shpack-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Package binaries
