@@ -26,9 +26,9 @@ class Shpack < Formula
 
   def install
     system "tar", "-xzf", Dir["*.tar.gz"].first
-    bin.install "shpack"
+    bin.install Dir["shpack-*"].first => "shpack"
   end
-
+  
   test do
     system "#{bin}/shpack", "--version"
   end
