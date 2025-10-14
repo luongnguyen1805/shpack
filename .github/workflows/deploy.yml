@@ -89,12 +89,10 @@ jobs:
       - name: Verify downloaded artifacts
         run: |
           # Fix: Adjust path to account for downloaded artifact structure
-          if [ -z "$(ls dist/builds-*/*.tar.gz 2>/dev/null)" ]; then
+          if [ -z "$(ls dist/*.tar.gz 2>/dev/null)" ]; then
             echo "Error: No artifacts found in dist/"
             exit 1
           fi
-          mv dist/builds-*/*.tar.gz dist/
-          rm -rf dist/builds-*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
