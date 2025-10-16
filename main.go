@@ -26,6 +26,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"strings"
 	"os/exec"
 	"path/filepath"
 )
@@ -56,6 +57,21 @@ func main() {
 		}
 	}
 
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if strings.HasPrefix(arg, "\\./") {
+			// Escape form: treat "\./something" as "./something"
+			os.Args[i] = strings.TrimPrefix(arg, "\\")
+		} else if strings.HasPrefix(arg, "./") {
+			// Normal relative path: convert to absolute
+			if abs, err := filepath.Abs(arg); err == nil {
+				os.Args[i] = abs
+			}
+		}			
+	}
+
+	cwd, _ := os.Getwd()
+
 	// Execute main.sh
 	mainScript := filepath.Join(cacheDir, "{{.MainScript}}")
 	cmd := exec.Command(mainScript, os.Args[1:]...)
@@ -63,6 +79,7 @@ func main() {
 
 	// Set up environment
 	cmd.Env = append(os.Environ(),
+		"SHPACK_USER_DIR="+cwd,
 		"SHPACK_SCRIPT_DIR="+cacheDir,
 		"SHPACK_VERSION={{.Version}}",
 	)
@@ -132,29 +149,42 @@ func extractScripts(cacheDir string, scripts map[string][]byte) error {
 `
 
 func main() {
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	srcDir := "."
-	if len(os.Args) == 3 {
-		srcDir = os.Args[2]
+	firstArg := "."
+	isInstall := false
+
+	for i := 2; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if arg == "--install" {
+			isInstall = true
+		} else {
+			firstArg = arg
+		}
 	}
 
 	switch os.Args[1] {
 	case "build":
-		if err := buildCommand(srcDir); err != nil {
+		if err := buildCommand(firstArg, isInstall); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "make":
-		if err := makeCommand(srcDir); err != nil {
+		if err := makeCommand(firstArg, isInstall); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "install":
+		if err := installCommand(firstArg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	case "init":
-		if err := initCommand(srcDir); err != nil {
+		if err := initCommand(firstArg); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -170,18 +200,73 @@ func printUsage() {
 	fmt.Println(`shpack - Shell Script Bundler
 
 Usage:
-  shpack build [source_dir]  Build executable from scripts
-  shpack make <folder>       Quick build from existing script folder
-  shpack init [source_dir]   Initialize a new project
   shpack version             Show version
+  shpack init [source_dir]   Initialize a new project
+
+  shpack build [source_dir]  Build executable from scripts
+  shpack make [folder]       Quick build from existing script folder
   
 Examples:
+  shpack init ./newproject  # Initialize new project
   shpack build              # Build from current directory
-  shpack make ./myscripts   # Quick build from folder (auto-setup)
-  shpack init ./newproject  # Initialize new project`)
+
+  shpack make ./myscripts   # Quick build from folder (auto-setup)`)
 }
 
-func buildCommand(srcDir string) error {
+func initCommand(srcDir string) error {
+
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", srcDir, err)
+	}
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	if srcDir != "." {
+		absPath, err := filepath.Abs(srcDir)
+		if err != nil {
+			return fmt.Errorf("invalid source directory: %w", err)
+		}
+		if err := os.Chdir(absPath); err != nil {
+			return fmt.Errorf("failed to change to source directory: %w", err)
+		}
+		defer os.Chdir(originalDir)
+		fmt.Printf("Building from: %s\n", absPath)
+	}
+
+	// Create directory structure
+	dirs := []string{"scripts", "build"}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	// Create sample config
+	configContent := `name: mytool
+entry: scripts/main.sh
+scripts: scripts
+version: 1.0.0
+`
+	if err := os.WriteFile("shpack.yaml", []byte(configContent), 0644); err != nil {
+		return fmt.Errorf("failed to create shpack.yaml: %w", err)
+	}
+
+	// Create sample main.sh
+	mainShContent := `#!/bin/bash
+# Main entry point script
+`
+	if err := os.WriteFile("scripts/main.sh", []byte(mainShContent), 0755); err != nil {
+		return fmt.Errorf("failed to create main.sh: %w", err)
+	}
+
+	fmt.Println("Initialized shpack project")
+	return nil
+}
+
+func buildCommand(srcDir string, isInstall bool) error {
 	// Parse flags
 	configFile := "shpack.yaml"
 	outputPath := ""
@@ -231,7 +316,7 @@ func buildCommand(srcDir string) error {
 		outputPath = filepath.Join("build", config.Name)
 	} else if !filepath.IsAbs(outputPath) {
 		// If relative output path, resolve from original directory
-		outputPath = filepath.Join(originalDir, outputPath)
+		outputPath = filepath.Join(srcDir, outputPath)
 	}
 
 	// Create build directory
@@ -289,64 +374,20 @@ func buildCommand(srcDir string) error {
 		return fmt.Errorf("failed to build executable: %w", err)
 	}
 
-	fmt.Printf("✓ Built successfully: %s\n", outputPath)
+	fmt.Printf("Built successfully: %s\n", outputPath)
+
+	if isInstall {
+
+		if err := doInstall(outputPath); err != nil {
+			return fmt.Errorf("failed to install: %w", err)
+		}
+
+	}
+
 	return nil
 }
 
-func initCommand(srcDir string) error {
-
-	if err := os.MkdirAll(srcDir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", srcDir, err)
-	}
-
-	originalDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-
-	if srcDir != "." {
-		absPath, err := filepath.Abs(srcDir)
-		if err != nil {
-			return fmt.Errorf("invalid source directory: %w", err)
-		}
-		if err := os.Chdir(absPath); err != nil {
-			return fmt.Errorf("failed to change to source directory: %w", err)
-		}
-		defer os.Chdir(originalDir)
-		fmt.Printf("Building from: %s\n", absPath)
-	}
-
-	// Create directory structure
-	dirs := []string{"scripts", "build"}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-	}
-
-	// Create sample config
-	configContent := `name: mytool
-entry: scripts/main.sh
-scripts: scripts
-version: 1.0.0
-`
-	if err := os.WriteFile("shpack.yaml", []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to create shpack.yaml: %w", err)
-	}
-
-	// Create sample main.sh
-	mainShContent := `#!/bin/bash
-# Main entry point script
-`
-	if err := os.WriteFile("scripts/main.sh", []byte(mainShContent), 0755); err != nil {
-		return fmt.Errorf("failed to create main.sh: %w", err)
-	}
-
-	fmt.Println("✓ Initialized shpack project")
-	return nil
-}
-
-func makeCommand(srcDir string) error {
+func makeCommand(srcDir string, isInstall bool) error {
 
 	// Validate source directory exists
 	absPath, err := filepath.Abs(srcDir)
@@ -461,7 +502,7 @@ version: %s
 	}
 
 	// Output to original directory
-	outputPath := filepath.Join(originalDir, toolName)
+	outputPath := filepath.Join(srcDir, toolName)
 
 	// Create build directory for compilation
 	buildTmpDir, err := os.MkdirTemp("", "shpack-build-*")
@@ -509,8 +550,26 @@ version: %s
 		return fmt.Errorf("failed to build executable: %w", err)
 	}
 
-	fmt.Printf("✓ Built successfully: %s\n", outputPath)
-	fmt.Printf("  (version: %s - fresh build, no cache)\n", randomVersion)
+	fmt.Printf("Built successfully: %s\n", outputPath)
+	fmt.Printf("(version: %s - fresh build, no cache)\n", randomVersion)
+
+	if isInstall {
+
+		if err := doInstall(outputPath); err != nil {
+			return fmt.Errorf("failed to install: %w", err)
+		}
+
+	}
 
 	return nil
+}
+
+// installCommand installs the given binary into a user-accessible bin directory.
+func installCommand(binaryPath string) error {
+
+	if binaryPath == "." {
+		return fmt.Errorf("no binary found")
+	}
+
+	return doInstall(binaryPath)
 }

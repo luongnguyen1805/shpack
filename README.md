@@ -1,14 +1,14 @@
-# 🧩 shpack
+# shpack
 
 **shpack** is a Go-based build tool that bundles multiple shell scripts into a single, portable executable.  
 It lets you organize scripts hierarchically, distribute them as one binary, and run them anywhere — no dependencies required.
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ```bash
-brew tap luongnguyen1805/shpack
+brew tap luongnguyen1805/homebrew-shpack
 brew install shpack
 ````
 
@@ -16,7 +16,7 @@ brew install shpack
 
 ---
 
-## 💡 Commands
+## Commands
 
 | Command                 | Description                                                      |
 | ----------------------- | ---------------------------------------------------------------- |
@@ -27,7 +27,7 @@ brew install shpack
 
 ---
 
-## 🧱 Overview
+## Overview
 
 `shpack` enables developers to:
 
@@ -38,7 +38,7 @@ brew install shpack
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 myproject/
@@ -54,7 +54,7 @@ myproject/
 
 ---
 
-## ⚙️ Build Configuration (`shpack.yaml`)
+## Build Configuration (`shpack.yaml`)
 
 ```yaml
 name: mytool              # Output executable name
@@ -65,7 +65,7 @@ version: 1.0.0
 
 ---
 
-## 🌍 Runtime Environment
+## Runtime Environment
 
 When the executable runs, shpack provides the following environment variables:
 
@@ -79,7 +79,7 @@ When the executable runs, shpack provides the following environment variables:
 
 ---
 
-## 🧰 Dependencies
+## Dependencies
 
 ### Build-time
 
@@ -93,7 +93,7 @@ When the executable runs, shpack provides the following environment variables:
 
 ---
 
-## 📦 Example Workflow
+## Example Workflow
 
 ```bash
 # Initialize project
@@ -110,6 +110,6 @@ shpack build sample
 
 ---
 
-## 🧾 License
+## License
 
 None

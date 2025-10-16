@@ -2,15 +2,74 @@ package main
 
 import (
 	"fmt"
-	"html/template"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func doInstall(binaryPath string) error {
+
+	// Get current executable path
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to determine current executable path: %w", err)
+	}
+
+	exePath, err = filepath.EvalSymlinks(exePath) // resolve symlinks (Homebrew etc.)
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable symlink: %w", err)
+	}
+
+	exeDir := filepath.Dir(exePath)
+	exeName := filepath.Base(binaryPath)
+	targetPath := filepath.Join(exeDir, exeName)
+
+	fmt.Printf("Installing new binary to: %s\n", targetPath)
+
+	// Open source binary
+	srcFile, err := os.Open(binaryPath)
+	if err != nil {
+		return fmt.Errorf("failed to open source binary %s: %w", binaryPath, err)
+	}
+	defer srcFile.Close()
+
+	// Create temp file in same dir for atomic replacement
+	tmpPath := targetPath + ".tmp"
+	dstFile, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file %s: %w", tmpPath, err)
+	}
+
+	// Copy data
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		dstFile.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to copy binary: %w", err)
+	}
+	dstFile.Close()
+
+	// Replace old binary atomically
+	if err := os.Rename(tmpPath, targetPath); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to replace old binary: %w", err)
+	}
+
+	if err := os.Remove(binaryPath); err != nil {
+		fmt.Printf("Installed ok, but failed to remove source binary: %v\n", err)
+	} else {
+		fmt.Printf("Removed source binary: %s\n", binaryPath)
+	}
+
+	fmt.Printf("Installed successfully as %s\n", targetPath)
+
+	return nil
+}
 
 func loadConfig(configFile string) (*Config, error) {
 	// Check if config file exists
