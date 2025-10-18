@@ -189,7 +189,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Println("shpack version 1.0.6")
+		fmt.Println("shpack version 1.0.7")
 	default:
 		printUsage()
 		os.Exit(1)

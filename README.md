@@ -72,8 +72,8 @@ When the executable runs, shpack provides the following environment variables:
 | Variable                                               | Description                                  |
 | ------------------------------------------------------ | -------------------------------------------- |
 | `SHPACK_SCRIPT_DIR`                                    | Path to extracted temporary script directory |
+| `SHPACK_USER_DIR`                                      | Path to user working directory               |
 | `SHPACK_VERSION`                                       | Version of the bundled scripts               |
-| *(all other user environment variables are preserved)* |                                              |
 
 > Inside your scripts, you can safely `source ./env.sh` or use relative paths — they resolve within `SHPACK_SCRIPT_DIR`.
 

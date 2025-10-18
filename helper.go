@@ -21,11 +21,6 @@ func doInstall(binaryPath string) error {
 		return fmt.Errorf("failed to determine current executable path: %w", err)
 	}
 
-	exePath, err = filepath.EvalSymlinks(exePath) // resolve symlinks (Homebrew etc.)
-	if err != nil {
-		return fmt.Errorf("failed to resolve executable symlink: %w", err)
-	}
-
 	exeDir := filepath.Dir(exePath)
 	exeName := filepath.Base(binaryPath)
 	targetPath := filepath.Join(exeDir, exeName)
