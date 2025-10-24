@@ -189,7 +189,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Println("shpack version 1.0.7")
+		fmt.Println("shpack version 1.0.8")
 	default:
 		printUsage()
 		os.Exit(1)
@@ -377,11 +377,9 @@ func buildCommand(srcDir string, isInstall bool) error {
 	fmt.Printf("Built successfully: %s\n", outputPath)
 
 	if isInstall {
-
 		if err := doInstall(outputPath); err != nil {
 			return fmt.Errorf("failed to install: %w", err)
 		}
-
 	}
 
 	return nil
@@ -401,6 +399,7 @@ func makeCommand(srcDir string, isInstall bool) error {
 
 	// Get folder name for tool name
 	toolName := filepath.Base(absPath)
+	srcDir = absPath
 
 	// Create temporary build directory
 	tmpDir, err := os.MkdirTemp("", "shpack-make-*")
@@ -554,11 +553,9 @@ version: %s
 	fmt.Printf("(version: %s - fresh build, no cache)\n", randomVersion)
 
 	if isInstall {
-
 		if err := doInstall(outputPath); err != nil {
 			return fmt.Errorf("failed to install: %w", err)
 		}
-
 	}
 
 	return nil
